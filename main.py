@@ -494,13 +494,6 @@ def main():
         print(f"Loading dataset from {dataset_path}...")
         data = pd.read_csv(dataset_path)
         
-        # Add this diagnostic code
-        print("\nTime Column Analysis:")
-        print(f"Data type: {data['Time'].dtype}")
-        print(f"Number of unique values: {len(data['Time'].unique())}")
-        print(f"Total number of rows: {len(data['Time'])}")
-        print(f"Unique ratio: {len(data['Time'].unique()) / len(data['Time'])}")
-        print("Sample values:", data['Time'].head().tolist())
         
         # Analyze dataset before preprocessing
         print("\nInitial Dataset Analysis:")
@@ -538,14 +531,25 @@ def main():
         if task_type == 'classification':
             print("\nClassification Model Results:")
             results = evaluate_classification_models(X_train_scaled, X_test_scaled, y_train, y_test)
-            print("\nSummary of Results:")
-            print("-" * 50)
-            for model, metrics in results.items():
-                if metrics is not None:
-                    print(f"{model}:")
-                    print(f"  Accuracy: {metrics['Accuracy']:.4f}")
-                    print(f"  F1 Score: {metrics['F1']:.4f}")
-                    print("-" * 30)
+            
+            # Find best model based on F1 score
+            best_model = max(results.items(), key=lambda x: x[1]['F1'] if x[1] is not None else -1)
+            print("\n" + "="*50)
+            print("BEST MODEL RECOMMENDATION")
+            print("="*50)
+            print(f"Target Column: {target_column}")
+            print(f"Task Type: Classification")
+            print(f"Best Model: {best_model[0]}")
+            print(f"Performance Metrics:")
+            print(f"  - F1 Score: {best_model[1]['F1']:.4f}")
+            print(f"  - Accuracy: {best_model[1]['Accuracy']:.4f}")
+            print("\nModel Ranking:")
+            # Sort models by F1 score
+            sorted_models = sorted([(name, metrics['F1']) for name, metrics in results.items() if metrics is not None],
+                                 key=lambda x: x[1], reverse=True)
+            for i, (model, f1) in enumerate(sorted_models, 1):
+                print(f"{i}. {model:<20} (F1: {f1:.4f})")
+            print("="*50)
             
             # Generate classification visualizations
             plot_classification_results(results)
@@ -554,11 +558,43 @@ def main():
         else:
             print("\nRegression Model Results:")
             results = evaluate_regression_models(X_train_scaled, X_test_scaled, y_train, y_test)
-            for model, metrics in results.items():
-                if metrics is not None:
-                    print(f"{model}:")
-                    print(f"  MSE: {metrics['MSE']:.4f}")
-                    print(f"  R2: {metrics['R2']:.4f}")
+            
+            # Find best model based on lowest MSE and highest R2
+            best_model_mse = min(results.items(), key=lambda x: x[1]['MSE'] if x[1] is not None else float('inf'))
+            best_model_r2 = max(results.items(), key=lambda x: x[1]['R2'] if x[1] is not None else -float('inf'))
+            
+            print("\n" + "="*50)
+            print("BEST MODEL RECOMMENDATION")
+            print("="*50)
+            print(f"Target Column: {target_column}")
+            print(f"Task Type: Regression")
+            print("\nBest Model by MSE:")
+            print(f"Model: {best_model_mse[0]}")
+            print(f"Performance Metrics:")
+            print(f"  - MSE: {best_model_mse[1]['MSE']:.4f}")
+            print(f"  - R2 Score: {best_model_mse[1]['R2']:.4f}")
+            
+            if best_model_mse[0] != best_model_r2[0]:
+                print("\nBest Model by R2 Score:")
+                print(f"Model: {best_model_r2[0]}")
+                print(f"Performance Metrics:")
+                print(f"  - MSE: {best_model_r2[1]['MSE']:.4f}")
+                print(f"  - R2 Score: {best_model_r2[1]['R2']:.4f}")
+            
+            print("\nModel Ranking by MSE (lower is better):")
+            # Sort models by MSE
+            sorted_models_mse = sorted([(name, metrics['MSE']) for name, metrics in results.items() if metrics is not None],
+                                     key=lambda x: x[1])
+            for i, (model, mse) in enumerate(sorted_models_mse, 1):
+                print(f"{i}. {model:<20} (MSE: {mse:.4f})")
+            
+            print("\nModel Ranking by R2 (higher is better):")
+            # Sort models by R2
+            sorted_models_r2 = sorted([(name, metrics['R2']) for name, metrics in results.items() if metrics is not None],
+                                    key=lambda x: x[1], reverse=True)
+            for i, (model, r2) in enumerate(sorted_models_r2, 1):
+                print(f"{i}. {model:<20} (R2: {r2:.4f})")
+            print("="*50)
             
             # Generate regression visualizations
             plot_regression_results(results)
