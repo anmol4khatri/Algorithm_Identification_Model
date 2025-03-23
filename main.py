@@ -20,20 +20,49 @@ from models.ridge import RidgeRegression
 from models.svm import SVMClassifier, SVMRegressor
 
 def analyze_dataset(data):
-    """Analyze basic statistics of the dataset"""
-    stats = {
-        'mean': data.mean(),
-        'median': data.median(),
-        'mode': data.mode().iloc[0],
-        'std': data.std()
-    }
-    return stats
+    """Analyze basic statistics and column types of the dataset"""
+    print("\nColumn Analysis:")
+    print("-" * 50)
+    
+    for column in data.columns:
+        print(f"\nColumn: {column}")
+        print(f"Data type: {data[column].dtype}")
+        print(f"Unique values: {len(data[column].unique())}")
+        print(f"Sample values: {data[column].dropna().head(3).tolist()}")
+        
+        # Determine appropriate task type for this column
+        task = determine_task_type(data[column])
+        print(f"Suggested task type: {task}")
+        
+        # Show basic stats for numeric columns
+        if pd.api.types.is_numeric_dtype(data[column]):
+            print(f"Mean: {data[column].mean():.2f}")
+            print(f"Std: {data[column].std():.2f}")
+        else:
+            print(f"Most common value: {data[column].mode().iloc[0]}")
+        
+        print(f"Missing values: {data[column].isnull().sum()}")
+        print("-" * 30)
 
-def determine_task_type(y):
+def determine_task_type(y, original_dtype=None):
     """Determine if the task is classification or regression"""
-    unique_values = len(np.unique(y))
-    if unique_values <= 10:  # Arbitrary threshold for classification
+    # If we have original dtype information, use it first
+    if original_dtype is not None and (original_dtype == 'object' or pd.api.types.is_categorical_dtype(original_dtype)):
         return 'classification'
+    
+    # For numeric columns, check the nature of values
+    if pd.api.types.is_numeric_dtype(y):
+        unique_ratio = len(np.unique(y)) / len(y)
+        
+        # If unique values are less than 5% of total values or <= 20 unique values,
+        # likely classification
+        if unique_ratio < 0.05 or len(np.unique(y)) <= 20:
+            return 'classification'
+        
+        # If values are mostly integers and few unique values, likely classification
+        if np.all(y.dropna() == y.dropna().astype(int)) and len(np.unique(y)) <= 50:
+            return 'classification'
+    
     return 'regression'
 
 def evaluate_classification_models(X_train, X_test, y_train, y_test):
@@ -50,6 +79,7 @@ def evaluate_classification_models(X_train, X_test, y_train, y_test):
     results = {}
     for name, model in models.items():
         try:
+            print(f"\nTraining {name}...")
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
@@ -60,7 +90,6 @@ def evaluate_classification_models(X_train, X_test, y_train, y_test):
                 'F1': f1
             }
             # Print results immediately for each model
-            print(f"\n{name}:")
             print(f"  Accuracy: {accuracy:.4f}")
             print(f"  F1 Score: {f1:.4f}")
         except Exception as e:
@@ -94,6 +123,20 @@ def evaluate_regression_models(X_train, X_test, y_train, y_test):
     
     return results
 
+def convert_time_to_minutes(time_str):
+    """Convert time string to normalized time value between 0 and 1"""
+    try:
+        if pd.isna(time_str):
+            return np.nan
+        # Split the time string into hours and minutes
+        hours, minutes = map(int, time_str.split(':'))
+        # Convert to minutes since midnight
+        total_minutes = hours * 60 + minutes
+        # Normalize to 0-1 range (divide by total minutes in a day)
+        return total_minutes / 1440.0  # 1440 = 24*60
+    except:
+        return np.nan
+
 def preprocess_data(data):
     """Preprocess the dataset and show information before and after"""
     # Display initial dataset information
@@ -108,6 +151,12 @@ def preprocess_data(data):
     
     initial_columns = set(data.columns)
     initial_rows = data.shape[0]
+    
+    # Convert Time column to normalized minutes if it exists
+    if 'Time' in data.columns:
+        print("\nConverting Time column to normalized values (0-1)...")
+        data['Time'] = data['Time'].apply(convert_time_to_minutes)
+        print(f"Time column range: {data['Time'].min():.3f} to {data['Time'].max():.3f}")
     
     # Remove columns with more than 50% missing values
     missing_percentages = data.isnull().sum() / len(data) * 100
@@ -145,10 +194,16 @@ def preprocess_data(data):
         if missing_before > 0:
             print(f"\nColumn '{col}': Filled {missing_before} missing values")
     
+    # Store original dtype for target column determination later
+    original_dtypes = data.dtypes.copy()
+    
     # Convert categorical variables to numeric
     categorical_columns = data.select_dtypes(include=['object']).columns
     for col in categorical_columns:
         data[col] = pd.factorize(data[col])[0]
+    
+    # Add the original dtypes as an attribute to the dataframe
+    data.original_dtypes = original_dtypes
     
     # Display final dataset information
     print("\nFinal Dataset Information:")
@@ -439,16 +494,21 @@ def main():
         print(f"Loading dataset from {dataset_path}...")
         data = pd.read_csv(dataset_path)
         
+        # Add this diagnostic code
+        print("\nTime Column Analysis:")
+        print(f"Data type: {data['Time'].dtype}")
+        print(f"Number of unique values: {len(data['Time'].unique())}")
+        print(f"Total number of rows: {len(data['Time'])}")
+        print(f"Unique ratio: {len(data['Time'].unique()) / len(data['Time'])}")
+        print("Sample values:", data['Time'].head().tolist())
+        
+        # Analyze dataset before preprocessing
+        print("\nInitial Dataset Analysis:")
+        analyze_dataset(data)
+        
         # Preprocess the data
         print("\nPreprocessing the data...")
         data = preprocess_data(data)
-        
-        # Analyze dataset
-        print("\nDataset Analysis:")
-        stats = analyze_dataset(data)
-        for metric, value in stats.items():
-            print(f"\n{metric.capitalize()}:")
-            print(value)
         
         # Separate features and target
         print("\nAvailable columns:")
@@ -462,8 +522,8 @@ def main():
         X = data.drop(columns=[target_column])
         y = data[target_column]
         
-        # Determine task type
-        task_type = determine_task_type(y)
+        # Determine task type using original dtype information
+        task_type = determine_task_type(y, data.original_dtypes[target_column])
         print(f"\nTask Type: {task_type}")
         
         # Split data

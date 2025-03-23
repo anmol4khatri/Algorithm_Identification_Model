@@ -1,14 +1,10 @@
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier as SklearnRandomForestClassifier
 from sklearn.ensemble import RandomForestRegressor
 
 class RandomForestClassifier:
-    def __init__(self, n_estimators=100, max_depth=None):
-        self.model = RandomForestClassifier(
-            n_estimators=n_estimators,
-            max_depth=max_depth,
-            random_state=3000
-        )
+    def __init__(self):
+        self.model = SklearnRandomForestClassifier(n_estimators=100)
     
     def fit(self, X, y):
         self.model.fit(X, y)

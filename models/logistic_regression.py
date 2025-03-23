@@ -1,12 +1,9 @@
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression as SklearnLogisticRegression
 
 class LogisticRegression:
-    def __init__(self, max_iter=1000):
-        self.model = LogisticRegression(
-            max_iter=max_iter,
-            random_state=42
-        )
+    def __init__(self):
+        self.model = SklearnLogisticRegression(multi_class='ovr')
     
     def fit(self, X, y):
         self.model.fit(X, y)
