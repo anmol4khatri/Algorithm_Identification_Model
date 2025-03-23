@@ -1,6 +1,6 @@
-# ML Model Selection and Evaluation Tool
+# Algorithm Identification and Model Comparison Tool
 
-This project provides a comprehensive tool for analyzing datasets and automatically selecting and evaluating the most appropriate machine learning models for both classification and regression tasks.
+This project helps you identify the best machine learning algorithm for your dataset by automatically applying multiple models and comparing their performance through accuracy scores, MSE, R-squared metrics, and visual comparisons. The tool generates detailed comparison graphs and metrics to help you make an informed decision about which model is most suitable for your specific dataset and problem.
 
 ## Features
 
